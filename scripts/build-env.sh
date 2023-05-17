@@ -1,6 +1,6 @@
-conda create -n minigrid python=3.8
+conda create -n minigrid python=3.9
 conda activate minigrid
-conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
-pip install transformers
-pip install gym-minigrid==1.1.0
-pip install jupyter
+
+conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+pip install transformers minigrid
+pip install wandb moviepy imageio

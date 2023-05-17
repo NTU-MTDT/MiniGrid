@@ -1,19 +1,19 @@
 from main import *
+from utils import create_folder_if_necessary
 import os
 import wandb
 from torch.nn import CrossEntropyLoss
 from decision_transformer.training.seq_trainer import SequenceTrainer
 
-
 wandb.init(entity="mtdt", project="MTDT", name=run_name, config=config)
-outputs = []
+wandb.define_metric("training/train_loss_mean", summary="min")
+wandb.define_metric("training/action_error", summary="min")
 
 print(f"max_iterations {max_iterations}")
 print(f"num_steps_per_iter {num_steps_per_iter}")
 
-if not os.path.exists("ckpts"):
-    os.mkdir("ckpts")
-    
+create_folder_if_necessary(ckpt_path)
+
 model.train()
 model.requires_grad_(True)
 
@@ -38,32 +38,31 @@ trainer = SequenceTrainer(
 )
 
 
-for i in range(max_iterations):
-    output = trainer.train_iteration(
-        num_steps=num_steps_per_iter, iter_num=i, print_logs=True
-    )
-    outputs.append(output)
-
-    log_output = output.copy()
+for iter_num in range(max_iterations):
+    output = trainer.train_iteration(num_steps=num_steps_per_iter, iter_num=iter_num)
+    print("=" * 80)
+    print(f"Iteration {iter_num}")
     for k, v in output.items():
-        if type(v) == list:
-            for j in range(len(v)):
-                log_output[f"{k}_{j}"] = v[j]
-            log_output.pop(k)
-        else:
-            log_output[f"{k}"] = v
-    wandb.log(log_output)
-    torch.save(model.state_dict(), f"ckpts/checkpoint_{i}.pt")
+        if "frame" not in k:
+            print(f"{k}: {v}")
 
-    # if outputs[-1]['evaluation/exact_match'] > best_exactmatch:
-    #     torch.save(model.state_dict(), 'best_model.pt')
-    #     best_exactmatch = outputs[-1]['evaluation/exact_match']
+    keys_to_expand = [
+        "evaluation/error_mean",
+        "evaluation/error_std",
+        "evaluation/error_confidence_interval",
+    ]
+    for key in keys_to_expand:
+        for i, k in enumerate(output[key]):
+            output[f"{key}_{i}"] = output[key][i]
+        output.pop(key)
+
+    for i, k in enumerate(output["evaluation/frames"]):
+        frames = output["evaluation/frames"][i]
+        frames = frames.transpose((0, 3, 1, 2))
+        output[f"evaluation/frames_{i}"] = wandb.Video(frames, fps=10)
+    output.pop("evaluation/frames")
+
+    wandb.log(output)
+    torch.save(model.state_dict(), f"{ckpt_path}/checkpoint_{iter_num}.pt")
+
 wandb.finish()
-
-# %%
-# errors = np.array([output["evaluation/error_mean"] for output in outputs])
-# stds = np.array([output["evaluation/error_std"] for output in outputs])
-# confidences = np.array([output["evaluation/error_confidence_interval"] for output in outputs])
-
-# with open("train_logs.pkl", "wb") as f:
-#     pickle.dump((errors, stds, confidences), f)

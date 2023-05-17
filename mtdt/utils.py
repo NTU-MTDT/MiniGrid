@@ -1,5 +1,22 @@
 from matplotlib import animation
 import matplotlib.pyplot as plt
+import random
+import numpy
+import torch
+import os
+
+
+def create_folder_if_necessary(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+
+def fix_seed(seed):
+    random.seed(seed)
+    numpy.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def display_frames_as_gif(frames, name="output.gif"):
@@ -34,4 +51,3 @@ def render_gif(env, seed, act_idxs, name="output.gif", print_reward=False):
     env.close()
 
     display_frames_as_gif(frames, name=name)
-

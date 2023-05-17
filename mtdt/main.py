@@ -1,23 +1,28 @@
 import sys
-import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append("..")
 
 import pickle
 import random
 
+import environments
 import numpy as np
 import torch
 from decision_transformer.models.decision_transformer_1122 import DecisionTransformer
-from gym_minigrid.wrappers import *
+from minigrid.wrappers import *
 from parameters import *
 from tqdm.auto import tqdm
-from environments.threetask import EmptyEnv
+from utils import fix_seed
 
 np.set_printoptions(edgeitems=30, linewidth=100000)
 
-env = EmptyEnv()
-obs = env.reset()  # This now produces an RGB tensor only
+fix_seed(0)
+env = gym.make(env_name, render_mode="rgb_array")
+obs, _ = env.reset()
+
+state_dim = env.agent_view_size * env.agent_view_size * 3
+return_dim = env.reward_dimension
+act_dim = env.action_space.n
 
 model = DecisionTransformer(
     state_dim=state_dim,
@@ -114,180 +119,6 @@ p_sample = trajectories_info["p_sample"]
 print(f"Number of timesteps: {num_timesteps}")
 print(f"rtg_mean {rtg_mean}")
 print(f"rtg_std {rtg_std}")
-
-# class TrajectoriesDataset(torch.data.Dataset):
-#     def __init__(self, data_path=None, max_len=None):
-#         self.data_path = data_path
-#         self.max_len = max_len
-#         print("Loading trajectories...")
-#         with open(data_path, "rb") as f:
-#             self.trajectories = pickle.load(f)
-
-#         # used to reweight sampling so we sample according to timesteps instead of trajectories
-#         states, traj_lens, returns, rtgs = [], [], [], []
-#         for i, path in enumerate(self.trajectories):
-#             states.append(np.array(path["observations"]).flatten())
-#             traj_lens.append(len(path["observations"]))
-#             returns.append(np.sum(np.array(path["rewards"]), axis=0))
-#             # trajectories[i]['rewards'] = path['rewards'][:, return_idx: return_idx + 1]
-
-#         states = np.array(states, dtype="object")
-#         traj_lens, returns = np.array(traj_lens), np.array(returns)
-
-#         # returns = returns[:, return_idx: return_idx + 1]
-
-#         # used for input normalization
-#         states = np.concatenate(states, axis=0)
-#         self.state_mean, self.state_std = np.mean(states, axis=0), np.std(states, axis=0) + 1e-6
-#         self.rtg_mean, self.rtg_std = np.mean(returns, axis=0), np.std(returns, axis=0) + 1e-6
-#         self.num_timesteps = sum(traj_lens)
-
-#         num_eval_episodes = 1
-#         pct_traj = 1.0
-
-#         # only train on top pct_traj trajectories (for %BC experiment)
-#         self.num_timesteps = max(int(pct_traj * num_timesteps), 1)
-#         sorted_inds = np.argsort(np.array(returns)[:, 0])  # lowest to highest
-#         num_trajectories = 1
-#         timesteps = traj_lens[sorted_inds[-1]]
-#         ind = len(self.trajectories) - 2
-#         while ind >= 0 and timesteps + traj_lens[sorted_inds[ind]] <= num_timesteps:
-#             timesteps += traj_lens[sorted_inds[ind]]
-#             num_trajectories += 1
-#             ind -= 1
-#         sorted_inds = sorted_inds[-num_trajectories:]
-
-#         # used to reweight sampling so we sample according to timesteps instead of trajectories
-#         p_sample = traj_lens[sorted_inds] / sum(traj_lens[sorted_inds])
-
-#         print("Trajectories loaded")
-
-
-#     def __len__(self):
-#         return self.num_timesteps
-
-#     def __getitem__(self, idx):
-#         # batch_indices = np.random.choice(
-#         #     np.arange(num_trajectories),
-#         #     size=batch_size,
-#         #     replace=True,
-#         #     p=p_sample,  # reweights so we sample according to timesteps
-#         # )
-
-#         # state, action, reward, done, return
-#         # s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
-#         # for i in range(batch_size):
-#             traj = trajectories[int(sorted_inds[idx])]
-#             start_index = random.randint(0, traj["rewards"].shape[0] - 1)  # start idx
-
-#             # get sequences from dataset
-#             # s.append(traj['observations'][si:si + max_len].r eshape(1, -1, *state_dim))
-#             # s.append(
-#             #     traj["observations"][start_index : start_index + max_len].reshape(
-#             #         1, -1, state_dim
-#             #     )
-#             # )
-#             s = traj["observations"][start_index : start_index + self.max_len].reshape(
-#                     1, -1, state_dim
-#                 )
-#             # a.append(
-#             #     traj["actions"][start_index : start_index + max_len].reshape(1, -1, act_dim)
-#             # )
-#             a = traj["actions"][start_index : start_index + self.max_len].reshape(1, -1, act_dim)
-#             # r.append(
-#             #     traj["rewards"][start_index : start_index + max_len].reshape(
-#             #         1, -1, return_dim
-#             #     )
-#             # )
-#             r = traj["rewards"][start_index : start_index + self.max_len].reshape(
-#                     1, -1, return_dim
-#                 )
-#             if "terminals" in traj:
-#                 d.append(
-#                     traj["terminals"][start_index : start_index + self.max_len].reshape(1, -1)
-#                 )
-#             else:
-#                 d.append(traj["dones"][start_index : start_index + self.max_len].reshape(1, -1))
-#             timesteps.append(
-#                 np.arange(start_index, start_index + s[-1].shape[1]).reshape(1, -1)
-#             )
-#             timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1  # padding cutoff
-#             rtg.append(
-#                 discount_cumsum(traj["rewards"][start_index:], gamma=1.0)[
-#                     : s[-1].shape[1] + 1
-#                 ].reshape(1, -1, return_dim)
-#             )
-
-#             if rtg[-1].shape[1] <= s[-1].shape[1]:
-#                 rtg[-1] = np.concatenate([rtg[-1], np.zeros((1, 1, return_dim))], axis=1)
-
-#             # padding and state + reward normalization
-#             traj_len = s[-1].shape[1]
-#             # s[-1] = np.concatenate([np.zeros((1, max_len - tlen, *state_dim)), s[-1]], axis=1)
-#             s[-1] = np.concatenate(
-#                 [np.zeros((1, max_len - traj_len, state_dim)), s[-1]], axis=1
-#             )
-#             s[-1] = (s[-1] - state_mean) / state_std
-#             a[-1] = np.concatenate(
-#                 [np.ones((1, max_len - traj_len, act_dim)) * -10.0, a[-1]], axis=1
-#             )
-#             r[-1] = np.concatenate(
-#                 [np.zeros((1, max_len - traj_len, return_dim)), r[-1]], axis=1
-#             )
-#             d[-1] = np.concatenate([np.ones((1, max_len - traj_len)) * 2, d[-1]], axis=1)
-#             rtg[-1] = (
-#                 np.concatenate(
-#                     [np.zeros((1, max_len - traj_len, return_dim)), rtg[-1]], axis=1
-#                 )
-#                 / scale
-#             )
-
-#             mask_value = -100
-#             mask_dims = np.random.choice(
-#                 np.arange(rtg[-1].shape[2]),
-#                 size=random.randint(0, rtg[-1].shape[2] - 1),
-#                 replace=False,
-#             )
-#             # rtg[-1][:, :, mask_dims] = mask_value
-
-#             timesteps[-1] = np.concatenate(
-#                 [np.zeros((1, max_len - traj_len)), timesteps[-1]], axis=1
-#             )
-#             mask.append(
-#                 np.concatenate(
-#                     [np.zeros((1, max_len - traj_len)), np.ones((1, traj_len))], axis=1
-#                 )
-#             )
-#         s = torch.from_numpy(np.concatenate(s, axis=0)).to(
-#             dtype=torch.float32, device=device
-#         )
-#         a = torch.from_numpy(np.concatenate(a, axis=0)).to(
-#             dtype=torch.float32, device=device
-#         )
-#         rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(
-#             dtype=torch.float32, device=device
-#         )
-#         r = torch.from_numpy(np.concatenate(r, axis=0)).to(
-#             dtype=torch.float32, device=device
-#         )
-#         d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
-#         timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(
-#             dtype=torch.long, device=device
-#         )
-#         mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
-
-#         ### normalize rtg
-#         # rtg = (rtg - rtg_mean) / rtg_std
-
-#         ### random mask some dimensions of the rtg
-#         # mask_value = -100
-#         # rtg = rtg.permute(0, 2, 1)
-#         # ### choose random dimensions to mask
-#         # mask_dims = np.random.choice(np.arange(rtg.shape[1]), size=random.randint(0, rtg.shape[1]-1) , replace=False)
-#         # rtg[:, mask_dims, :] = mask_value
-#         # rtg = rtg.permute(0, 2, 1)
-
-#         return s, a, r, d, rtg, timesteps, mask
 
 
 def get_batch(batch_size=256, max_len=max_length):
@@ -422,10 +253,11 @@ def evaluate_episode_rtg(
     scale=1.0,
     state_mean=0.0,
     state_std=1.0,
-    device="cuda",
+    device=device,
     target_return=None,
     mode="normal",
     temperature=1.0,
+    render=False,
 ):
     with torch.no_grad():
         model.eval()
@@ -434,7 +266,7 @@ def evaluate_episode_rtg(
         state_mean = torch.from_numpy(state_mean).to(device=device)
         state_std = torch.from_numpy(state_std).to(device=device)
 
-        state = env.reset(seed=seed)["image"]
+        state = env.reset(seed=seed)[0]["image"]
         if mode == "noise":
             state = state + np.random.normal(0, 0.1, size=state.shape)
 
@@ -459,6 +291,7 @@ def evaluate_episode_rtg(
         timesteps = torch.tensor(0, device=device, dtype=torch.long).reshape(1, 1)
 
         sim_states = []
+        frames = []
 
         episode_return, episode_length = 0, 0
         for t in range(max_ep_len):
@@ -487,14 +320,18 @@ def evaluate_episode_rtg(
             action_probs = np.exp(action) / np.sum(np.exp(action))
             # print(action_probs)
             action = np.random.choice(np.arange(act_dim), p=action_probs)
+            # action = np.argmax(action_probs)
             chosen_actions.append(action)
 
-            state, reward, done, _ = env.step(idx2act[action])
+            state, reward, terminated, truncated, _ = env.step(idx2act[action])
+            done = terminated or truncated
+            if render:
+                frames.append(env.render())
             state = state["image"]
 
             cur_state = torch.from_numpy(state).to(device=device).reshape(1, state_dim)
             states = torch.cat([states, cur_state], dim=0)
-            reward = torch.tensor(reward).cuda()
+            reward = torch.tensor(reward).to(device)
             rewards[-1] = reward
 
             if mode != "delayed":
@@ -526,10 +363,10 @@ def evaluate_episode_rtg(
             if done:
                 break
         model.train()
-    return episode_return, episode_length, chosen_actions, target_return[0]
+    return episode_return, episode_length, chosen_actions, target_return[0], frames
 
 
-def eval(model, env, rw, seed=0, temperature=1.0):
+def eval(model, env, rw, seed=0, temperature=1.0, render=False):
     target_return = torch.tensor(rw)
     result = evaluate_episode_rtg(
         idx2act=idx2act,
@@ -542,33 +379,61 @@ def eval(model, env, rw, seed=0, temperature=1.0):
         target_return=target_return,
         mode="normal",
         max_ep_len=max_ep_len,
-        scale=torch.tensor(scale).cuda(),
+        scale=torch.tensor(scale).to(device=device),
         state_mean=np.array(state_mean),
         state_std=np.array(state_std),
         seed=seed,
         temperature=temperature,
+        render=render,
     )
     return {
         "actual_return": result[0].cpu().numpy(),
         "episode_length": result[1],
-        "target_return": result[3].cpu().numpy(),
         "actions": np.array(result[2]),
+        "target_return": result[3].cpu().numpy(),
+        "frames": np.array(result[4]),
     }
 
 
 def eval_n(model, env, n=1, datapoints_per_task=5, temperature=1.0):
-    results = []
+    return_errors = []
+    frames = []
+    for task_id in tqdm(range(return_dim), desc="task", leave=False):
+        return_error_temp = []
+        frames_temp = []
 
-    for i in tqdm(range(10000, 10000 + n)):
-        for rw_dim in range(return_dim):
-            ### evaluate +-1 std
-            for s in np.arange(-1, 1, 2 / (datapoints_per_task)):
-                r = rtg_mean[rw_dim] + s * rtg_std[rw_dim]
-                rw = [r if i == rw_dim else 0 for i in range(return_dim)]
-                results.append(
-                    eval(model=model, rw=rw, env=env, seed=i, temperature=temperature)
+        stds = np.array(
+            [
+                -1 + 2.0 * (i / (datapoints_per_task - 1))
+                for i in range(datapoints_per_task)
+            ]
+        )
+        rtgs = rtg_mean[task_id] + stds * rtg_std[task_id]
+        print(f"Evaluating task{task_id} with rtg = {rtgs}")
+
+        for seed in tqdm(range(10000, 10000 + n), desc="seed", leave=False):
+            for i in range(datapoints_per_task):
+                target_return = [
+                    rtgs[i] if i == task_id else 0 for i in range(return_dim)
+                ]
+                render = i == datapoints_per_task // 2
+                result = eval(
+                    model=model,
+                    rw=target_return,
+                    env=env,
+                    seed=seed,
+                    temperature=temperature,
+                    render=render,
                 )
-    return results
+                if render:
+                    frames_temp.append(result["frames"])
+                actual_return = result["actual_return"]
+                return_error = abs(target_return - actual_return)
+                return_error_temp.append(return_error)
+        return_errors.append(return_error_temp)
+        frames.append(np.concatenate(frames_temp))
+
+    return return_errors, frames
 
 
 def eval_func(
@@ -577,24 +442,19 @@ def eval_func(
     dpt=config["evaluation"]["datapoints_per_task"],
     temperature=1.0,
 ):
-    results = eval_n(
+    return_errors, frames = eval_n(
         model=model, env=env, n=n, datapoints_per_task=dpt, temperature=temperature
     )
-    reward_errors = [[] for _ in range(return_dim)]
-    for result in results:
-        target_return = result["target_return"]
-        actual_return = result["actual_return"]
-        dim = np.argmax(target_return)
-        reward_errors[dim].append(abs(target_return[dim] - actual_return[dim]))
 
     n = n * dpt
-    error_mean = [np.mean(r) for r in reward_errors]
-    error_std = [np.std(r) for r in reward_errors]
+    error_mean = [np.mean(r) for r in return_errors]
+    error_std = [np.std(r) for r in return_errors]
     error_confidence_interval = [1.96 * e / np.sqrt(n) for e in error_std]
     return {
         "error_mean": error_mean,
         "error_std": error_std,
         "error_confidence_interval": error_confidence_interval,
+        "frames": frames,
     }
 
 
