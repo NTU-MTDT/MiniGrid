@@ -128,9 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+.vscode/
 wandb/
 gifs/
-ckpt*/
-dataset/dataset.json
-dataset/dataset.pkl
-dataset/reward_counter.txt
+*ckpt*/
+dataset/*
