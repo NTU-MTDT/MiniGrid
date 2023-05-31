@@ -5,13 +5,16 @@ import wandb
 from torch.nn import CrossEntropyLoss
 from decision_transformer.training.seq_trainer import SequenceTrainer
 
-wandb.init(entity="mtdt", project="MTDT", name=run_name, config=config)
+wandb.init(
+    entity="mtdt", project="MTDT", name=config["general"]["run_name"], config=config
+)
 wandb.define_metric("training/train_loss_mean", summary="min")
 wandb.define_metric("training/action_error", summary="min")
 
 print(f"max_iterations {max_iterations}")
 print(f"num_steps_per_iter {num_steps_per_iter}")
 
+ckpt_path = config["general"]["ckpt_path"]
 create_folder_if_necessary(ckpt_path)
 
 model.train()

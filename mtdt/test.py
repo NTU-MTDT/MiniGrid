@@ -11,7 +11,7 @@ model.load_state_dict(torch.load(model_path))
 model.eval()
 print("Model loaded successfully")
 
-env_class = getattr(environments, env_name)
+env_class = getattr(environments, config["general"]["env_name"])
 env = env_class(render_mode="rgb_array")
 
 if not os.path.exists("gifs"):

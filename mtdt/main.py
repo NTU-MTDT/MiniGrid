@@ -17,7 +17,7 @@ from utils import fix_seed
 np.set_printoptions(edgeitems=30, linewidth=100000)
 
 fix_seed(0)
-env = gym.make(env_name, render_mode="rgb_array")
+env = gym.make(config["general"]["env_name"], render_mode="rgb_array")
 obs, _ = env.reset()
 
 state_dim = env.agent_view_size * env.agent_view_size * 3
@@ -105,7 +105,7 @@ def load_trajectories(data_path):
     }
 
 
-trajectories_info = load_trajectories(data_path=data_path)
+trajectories_info = load_trajectories(data_path=config["general"]["data_path"])
 trajectories = trajectories_info["trajectories"]
 num_trajectories = trajectories_info["num_trajectories"]
 num_timesteps = trajectories_info["num_timesteps"]
@@ -222,6 +222,9 @@ def get_batch(batch_size=256, max_len=max_length):
     timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(
         dtype=torch.long, device=device
     )
+    # print(r.shape)
+    # print(rtg.shape)
+    
     mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
 
     ### normalize rtg

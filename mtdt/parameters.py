@@ -1,12 +1,11 @@
-run_name = "threetasks"
-
-env_name = "ThreeTask-v0"
-data_path = "/tmp2/B09901171/rl-starter-files/dataset/threetasks.pkl"
-ckpt_path = "threetasks_ckpt"
-
-device = "cuda:1"
-
 config = {
+    "general": {
+        "run_name": "threetasks_mask",
+        "env_name": "ThreeTask-v0",
+        "data_path": "/home/ray/project/minigrid-online/dataset/threetasks.pkl",
+        "ckpt_path": "threetasks_ckpt",
+        "device": "cuda:1",
+    },
     "train": {
         "num_steps_per_iter": 5000,
         "max_iterations": 100,
@@ -31,6 +30,7 @@ config = {
     },
 }
 
+device = config["general"]["device"]
 max_ep_len = config["train"]["max_ep_len"]
 max_length = config["train"]["max_length"]
 scale = config["train"]["scale"]
