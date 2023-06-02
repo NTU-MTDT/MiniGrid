@@ -1,9 +1,10 @@
 config = {
     "general": {
-        "run_name": "threetasks_mask",
+        "run_name": "threetasks_small add more noise",
+        # "run_name": None,
         "env_name": "ThreeTask-v0",
-        "data_path": "/home/ray/project/minigrid-online/dataset/threetasks.pkl",
-        "ckpt_path": "threetasks_ckpt",
+        "data_path": "/home/ray/project/minigrid-online/dataset/threetasks_small.pkl",
+        "ckpt_path": "threetasks_small_noise_ckpt",
         "device": "cuda:1",
     },
     "train": {

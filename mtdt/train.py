@@ -5,17 +5,22 @@ import wandb
 from torch.nn import CrossEntropyLoss
 from decision_transformer.training.seq_trainer import SequenceTrainer
 
-wandb.init(
-    entity="mtdt", project="MTDT", name=config["general"]["run_name"], config=config
-)
-wandb.define_metric("training/train_loss_mean", summary="min")
-wandb.define_metric("training/action_error", summary="min")
+log_to_wandb = config["general"]["run_name"] is not None
+if log_to_wandb:
+    wandb.init(
+        entity="mtdt", project="MTDT", name=config["general"]["run_name"], config=config
+    )
+    wandb.define_metric("training/train_loss_mean", summary="min")
+    wandb.define_metric("training/action_error", summary="min")
 
 print(f"max_iterations {max_iterations}")
 print(f"num_steps_per_iter {num_steps_per_iter}")
 
 ckpt_path = config["general"]["ckpt_path"]
 create_folder_if_necessary(ckpt_path)
+
+os.system(f"cp parameters.py {ckpt_path}/parameters.py")
+os.system(f"cp {config['general']['data_path']} {ckpt_path}/data.pkl")
 
 model.train()
 model.requires_grad_(True)
@@ -65,7 +70,9 @@ for iter_num in range(max_iterations):
         output[f"evaluation/frames_{i}"] = wandb.Video(frames, fps=10)
     output.pop("evaluation/frames")
 
-    wandb.log(output)
+    if log_to_wandb:
+        wandb.log(output)
     torch.save(model.state_dict(), f"{ckpt_path}/checkpoint_{iter_num}.pt")
 
-wandb.finish()
+if log_to_wandb:
+    wandb.finish()

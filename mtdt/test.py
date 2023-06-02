@@ -5,31 +5,33 @@ import os
 
 np.set_printoptions(precision=3)
 
-model_path = "handcraft_ckpt/checkpoint_52.pt"
+model_path = "threetasks_small_ckpt/checkpoint_17.pt"
 
 model.load_state_dict(torch.load(model_path))
 model.eval()
 print("Model loaded successfully")
 
-env_class = getattr(environments, config["general"]["env_name"])
-env = env_class(render_mode="rgb_array")
+# env_class = getattr(environments, config["general"]["env_name"])
+# env = env_class(render_mode="rgb_array")
 
 if not os.path.exists("gifs"):
     os.mkdir("gifs")
 
-target_return = np.array([0.95])
+task_mask = np.array([0, 1, 0])
+target_return = np.array([0, 5, 0])
 
 actual_return = []
 return_error = []
 frames = []
-for k in tqdm(range(100)):
+for k in tqdm(range(10)):
     seed = random.randint(0, 100000)
     env.reset(seed=seed)
-    render = len(frames) < 10
+    render = len(frames) < 5
 
     result = eval(
         model=model,
         env=env,
+        task_mask=task_mask,
         rw=target_return,
         seed=seed,
         temperature=1.0,
@@ -49,8 +51,9 @@ return_error_std = np.std(return_error, axis=0)
 frames = np.concatenate(frames, axis=0)
 print(frames.shape)
 
-print(f"Seed: {seed}")
-print(f"Episode length: {result['episode_length']}")
+# print(f"Seed: {seed}")
+# print(f"Episode length: {result['episode_length']}")
+print(f"Task mask:\t{task_mask}")
 print(f"Target return:\t{target_return}")
 print(f"Actual return:\t{actual_return}")
 print(f"Return error mean:\t{return_error_mean}")
