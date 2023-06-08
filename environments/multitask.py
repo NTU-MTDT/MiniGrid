@@ -132,6 +132,8 @@ class MultiTask(MiniGridEnv):
             self.agent_dir = self.agent_start_dir
         else:
             self.place_agent()
+            self.agent_start_pos = self.agent_pos
+            self.agent_start_dir = self.agent_dir
 
         self.mission = "get to the green goal square"
 
@@ -156,6 +158,11 @@ class MultiTask(MiniGridEnv):
         obs, reward, terminated, truncated, info = super().step(action)
         done = terminated or truncated
         # done = self.step_count >= 50
+
+        reward =  -1 * abs(self.goal_pos[0] - self.agent_pos[0]) + abs(self.goal_pos[1] - self.agent_pos[1])
+        start_goal_dist = abs(self.goal_pos[0] - self.agent_start_pos[0]) + abs(self.goal_pos[1] - self.agent_start_pos[1])
+        self.start_goal_dist = start_goal_dist
+        reward /= start_goal_dist
 
         rewards = [0] * self.reward_dimension
         rewards[0] = reward

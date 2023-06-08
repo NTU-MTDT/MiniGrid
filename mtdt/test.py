@@ -5,19 +5,19 @@ import os
 
 np.set_printoptions(precision=3)
 
-model_path = "handcraft_ckpt/checkpoint_52.pt"
+model_path = "threetasks_ckpt/checkpoint_5.pt"
 
 model.load_state_dict(torch.load(model_path))
 model.eval()
 print("Model loaded successfully")
 
-env_class = getattr(environments, env_name)
-env = env_class(render_mode="rgb_array")
+# env_class = getattr(environments, env_name)
+# env = env_class(render_mode="rgb_array")
 
 if not os.path.exists("gifs"):
     os.mkdir("gifs")
 
-target_return = np.array([0.95])
+target_return = np.array([-100, 0, 0])
 
 actual_return = []
 return_error = []

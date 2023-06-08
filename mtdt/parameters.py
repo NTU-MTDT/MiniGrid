@@ -1,7 +1,7 @@
-run_name = "threetasks"
+run_name = "threetasks-new-rw"
 
 env_name = "ThreeTask-v0"
-data_path = "/tmp2/B09901171/rl-starter-files/dataset/threetasks.pkl"
+data_path = "/home/alicedu/MiniGrid/dataset/threetasks-new-rw.pkl"
 ckpt_path = "threetasks_ckpt"
 
 device = "cuda:1"
@@ -9,7 +9,7 @@ device = "cuda:1"
 config = {
     "train": {
         "num_steps_per_iter": 5000,
-        "max_iterations": 100,
+        "max_iterations": 10,
         "warmup_steps": 3000,
         "learning_rate": 1e-4,
         "weight_decay": 1e-4,
