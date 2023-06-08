@@ -5,7 +5,9 @@ from minigrid.core.mission import MissionSpace
 from minigrid.core.world_object import Goal
 from minigrid.minigrid_env import MiniGridEnv
 
+from minigrid.core.world_object import WorldObj, Wall
 from gymnasium import spaces
+import numpy as np
 
 
 class MultiTask(MiniGridEnv):
@@ -97,6 +99,7 @@ class MultiTask(MiniGridEnv):
             # Set this to True for maximum speed
             see_through_walls=True,
             max_steps=max_steps,
+            agent_view_size=2 * size - 3,
             **kwargs,
         )
 
@@ -104,6 +107,22 @@ class MultiTask(MiniGridEnv):
         self.action_history = ""
         self.reward_dimension = len(self.subtasks) + 1
         self.cd_flag = [0] * (self.reward_dimension - 1)
+
+    def _manhattan_dist(self):
+        return abs(self.agent_pos[0] - self.goal_pos[0]) + abs(
+            self.agent_pos[1] - self.goal_pos[1]
+        )
+
+    def calc_reward(self) -> float:
+        curr_dist = self._manhattan_dist()
+        reward = float(self.last_dist - curr_dist)
+        if reward < 0:
+            reward = -2
+        elif reward == 0:
+            reward = -0.1
+        # print(f"curr_dist: {curr_dist}, last_dist: {self.last_dist}, reward: {reward}")
+        self.last_dist = curr_dist
+        return reward
 
     @staticmethod
     def _gen_mission():
@@ -130,6 +149,7 @@ class MultiTask(MiniGridEnv):
         if self.agent_start_pos is not None:
             self.agent_pos = self.agent_start_pos
             self.agent_dir = self.agent_start_dir
+            # self.agent_dir = self._rand_int(0, 4)
         else:
             self.place_agent()
 
@@ -143,6 +163,7 @@ class MultiTask(MiniGridEnv):
                 self._rand_int(1, self.height - 2),
             )
         obs = super().reset(**kwargs)
+        self.last_dist = self._manhattan_dist()
         return obs
 
     def step(self, action):
@@ -154,8 +175,13 @@ class MultiTask(MiniGridEnv):
         self.action_history += str(action)
 
         obs, reward, terminated, truncated, info = super().step(action)
+        reward = self.calc_reward()
         done = terminated or truncated
-        # done = self.step_count >= 50
+        # if done:
+        #     print(f"agent_pos: {self.agent_pos}")
+        #     print(f"goal_pos: {self.goal_pos}")
+        #     print(f"action_history: {self.action_history}")
+        #     print(f"reward: {reward}")
 
         rewards = [0] * self.reward_dimension
         rewards[0] = reward
@@ -179,3 +205,92 @@ class MultiTask(MiniGridEnv):
             rewards = rewards[self.task]
 
         return obs, rewards, terminated, truncated, info
+
+    def gen_obs_grid(self, agent_view_size=None):
+        """
+        Generate the fully observable square grid.
+        """
+
+        grid = self.grid
+
+        full_grid = Grid(self.agent_view_size, self.agent_view_size)
+        for i in range(self.agent_view_size):
+            for j in range(self.agent_view_size):
+                full_grid.set(i, j, Wall())
+
+        # print(f"agent_pos: {self.agent_pos}")
+        for i in range(grid.width):
+            for j in range(grid.height):
+                x = i - self.agent_pos[0] + self.width - 2
+                y = j - self.agent_pos[1] + self.height - 2
+                # print(f"i: {i}, j: {j}, x: {x}, y: {y}")
+                full_grid.set(x, y, grid.get(i, j))
+
+        # print(self.grid_to_str(full_grid))
+        for i in range(self.agent_dir + 1):
+            full_grid = full_grid.rotate_left()
+
+        vis_mask = np.ones(shape=(full_grid.width, full_grid.height), dtype=bool)
+
+        # print("=====================================")
+        # print(self)
+        # print("-------------------------------------")
+        # print(self.grid_to_str(full_grid))
+        # print("=====================================")
+
+        return full_grid, vis_mask
+
+    def grid_to_str(self, grid: Grid):
+        """
+        Produce a pretty string of the environment's grid along with the agent.
+        A grid cell is represented by 2-character string, the first one for
+        the object and the second one for the color.
+        """
+
+        # Map of object types to short string
+        OBJECT_TO_STR = {
+            "wall": "W",
+            "floor": "F",
+            "door": "D",
+            "key": "K",
+            "ball": "A",
+            "box": "B",
+            "goal": "G",
+            "lava": "V",
+        }
+
+        # Map agent's direction to short string
+        AGENT_DIR_TO_STR = {0: ">", 1: "V", 2: "<", 3: "^"}
+
+        output = ""
+
+        for j in range(grid.height):
+            for i in range(grid.width):
+                if (
+                    self.agent_view_size // 2 == self.agent_pos[0]
+                    and self.agent_view_size // 2 == self.agent_pos[1]
+                ):
+                    output += 2 * AGENT_DIR_TO_STR[0]
+                    continue
+
+                tile = grid.get(i, j)
+
+                if tile is None:
+                    output += "  "
+                    continue
+
+                if tile.type == "door":
+                    if tile.is_open:
+                        output += "__"
+                    elif tile.is_locked:
+                        output += "L" + tile.color[0].upper()
+                    else:
+                        output += "D" + tile.color[0].upper()
+                    continue
+
+                output += OBJECT_TO_STR[tile.type] + tile.color[0].upper()
+
+            if j < grid.height - 1:
+                output += "\n"
+
+        return output
