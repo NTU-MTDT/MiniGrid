@@ -1,10 +1,10 @@
 config = {
     "general": {
-        "run_name": "threetasks_small add more noise",
+        "run_name": "LavaGoal",
         # "run_name": None,
-        "env_name": "ThreeTask-v0",
-        "data_path": "/home/ray/project/minigrid-online/dataset/threetasks_small.pkl",
-        "ckpt_path": "threetasks_small_noise_ckpt",
+        "env_name": "LavaGoal-v0",
+        "data_path": "/home/ray/project/minigrid-online/dataset/lava_goal/lava_goal.pkl",
+        "ckpt_path": "LavaGoal_ckpt",
         "device": "cuda:1",
     },
     "train": {

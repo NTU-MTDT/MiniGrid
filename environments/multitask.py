@@ -5,7 +5,7 @@ from minigrid.core.mission import MissionSpace
 from minigrid.core.world_object import Goal
 from minigrid.minigrid_env import MiniGridEnv
 
-from minigrid.core.world_object import WorldObj, Wall
+from minigrid.core.world_object import Goal, Lava, Wall, WorldObj, Floor
 from gymnasium import spaces
 import numpy as np
 
@@ -79,6 +79,7 @@ class MultiTask(MiniGridEnv):
         random_goal: bool = False,
         noise_prob: float = 0.0,
         max_steps: int | None = None,
+        obstacle_type: WorldObj | None = None,
         **kwargs,
     ):
         self.agent_start_pos = agent_start_pos
@@ -87,6 +88,7 @@ class MultiTask(MiniGridEnv):
         self.noise_prob = noise_prob
         self.task = task
         self.subtasks = subtasks
+        self.obstacle_type = obstacle_type
 
         mission_space = MissionSpace(mission_func=self._gen_mission)
 
@@ -105,7 +107,7 @@ class MultiTask(MiniGridEnv):
 
         self.action_space = spaces.Discrete(3)
         self.action_history = ""
-        self.reward_dimension = len(self.subtasks) + 1
+        self.reward_dimension = len(self.subtasks) + 2
         self.cd_flag = [0] * (self.reward_dimension - 1)
 
     def _manhattan_dist(self):
@@ -113,7 +115,7 @@ class MultiTask(MiniGridEnv):
             self.agent_pos[1] - self.goal_pos[1]
         )
 
-    def calc_reward(self) -> float:
+    def calc_goal_reward(self) -> float:
         curr_dist = self._manhattan_dist()
         reward = float(self.last_dist - curr_dist)
         if reward < 0:
@@ -122,6 +124,15 @@ class MultiTask(MiniGridEnv):
             reward = -0.1
         # print(f"curr_dist: {curr_dist}, last_dist: {self.last_dist}, reward: {reward}")
         self.last_dist = curr_dist
+        reward *= self.width / self.init_dist
+        return reward
+
+    def calc_lava_reward(self) -> float:
+        if self.grid.get(*self.agent_pos) is None:
+            reward = 1
+        else:
+            reward = -0.1
+        self.put_obj(Floor(), *self.agent_pos)
         return reward
 
     @staticmethod
@@ -155,6 +166,42 @@ class MultiTask(MiniGridEnv):
 
         self.mission = "get to the green goal square"
 
+    def _gen_grid(self, width, height):
+        assert width >= 5 and height >= 5
+
+        # Create an empty grid
+        self.grid = Grid(width, height)
+
+        # Generate the surrounding walls
+        self.grid.wall_rect(0, 0, width, height)
+
+        if self.obstacle_type is not None:
+            # Generate and store random gap position
+            self.gap_pos = np.array(
+                (
+                    self._rand_int(2, width - 2),
+                    self._rand_int(1, height - 1),
+                )
+            )
+
+            # Place the obstacle wall
+            self.grid.vert_wall(self.gap_pos[0], 1, height - 2, self.obstacle_type)
+
+            # Put a hole in the wall
+            self.grid.set(*self.gap_pos, None)
+
+        # Place a goal square in the bottom-right corner
+        self.goal_pos = np.array((width - 2, height - 2))
+        self.put_obj(Goal(), *self.goal_pos)
+
+        # Place the agent
+        if self.agent_start_pos is not None:
+            self.agent_pos = self.agent_start_pos
+            self.agent_dir = self.agent_start_dir
+            # self.agent_dir = self._rand_int(0, 4)
+        else:
+            self.place_agent()
+
     def reset(self, **kwargs):
         self.action_history = ""
         if self.random_goal:
@@ -163,7 +210,9 @@ class MultiTask(MiniGridEnv):
                 self._rand_int(1, self.height - 2),
             )
         obs = super().reset(**kwargs)
-        self.last_dist = self._manhattan_dist()
+        self.init_dist = self._manhattan_dist()
+        self.last_dist = self.init_dist
+        self.last_pos = self.agent_pos
         return obs
 
     def step(self, action):
@@ -174,8 +223,7 @@ class MultiTask(MiniGridEnv):
             action = new_action
         self.action_history += str(action)
 
-        obs, reward, terminated, truncated, info = super().step(action)
-        reward = self.calc_reward()
+        obs, _, terminated, truncated, info = super().step(action)
         done = terminated or truncated
         # if done:
         #     print(f"agent_pos: {self.agent_pos}")
@@ -184,11 +232,12 @@ class MultiTask(MiniGridEnv):
         #     print(f"reward: {reward}")
 
         rewards = [0] * self.reward_dimension
-        rewards[0] = reward
-        for i in range(1, self.reward_dimension):
+        rewards[0] = self.calc_goal_reward()
+        rewards[1] = self.calc_lava_reward()
+        for i in range(2, self.reward_dimension):
             if (
-                self.subtasks[i - 1]
-                == self.action_history[-len(self.subtasks[i - 1]) :]
+                self.subtasks[i - 2]
+                == self.action_history[-len(self.subtasks[i - 2]) :]
             ):
                 rewards[i] = 1
             # if self.cd_flag[i - 1] != 0:

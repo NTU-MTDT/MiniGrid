@@ -2,15 +2,16 @@ from main import *
 from utils import *
 import torch
 import os
+from minigrid.core.world_object import Floor, Lava
 
 np.set_printoptions(precision=3)
 
 # ========================================
-ckpt_path = "three_full_ckpt"
-checkpoint = "checkpoint_6.pt"
-num_epochs = 10
-task_mask = np.array([1, 1, 0])
-target_return = np.array([11.5, 10, 0])
+ckpt_path = "LavaGoal_ckpt"
+checkpoint = "checkpoint_16.pt"
+num_epochs = 30
+task_mask = np.array([1, 1])
+target_return = np.array([0.0, 30.0])
 # ========================================
 
 model_path = os.path.join(ckpt_path, checkpoint)
@@ -20,6 +21,13 @@ print("Model loaded successfully")
 
 # env_class = getattr(environments, config["general"]["env_name"])
 # env = env_class(render_mode="rgb_array")
+
+env = gym.make(
+    config["general"]["env_name"],
+    render_mode="rgb_array",
+    agent_start_pos=(1, 1),
+    obstacle_type=Lava,
+)
 
 if not os.path.exists(f"{ckpt_path}/gifs"):
     os.system(f"mkdir -p {ckpt_path}/gifs")
@@ -44,12 +52,12 @@ for k in tqdm(range(num_epochs)):
     actual_return.append(result["actual_return"])
     return_error.append(abs(target_return - actual_return[-1]))
 
-    if render and actual_return[-1][0] < 10:
+    if render and result["actual_return"][0] > 0:
         frame = result["frames"]
         frame = np.concatenate([frame] + [frame[-1:] for _ in range(5)], axis=0)
         frames.append(frame)
 
-actual_return.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+actual_return.sort(key=lambda x: (x[0], x[1]), reverse=True)
 for i in range(len(actual_return)):
     print(actual_return[i])
 
